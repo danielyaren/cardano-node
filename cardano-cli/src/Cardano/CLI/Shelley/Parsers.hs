@@ -18,7 +18,7 @@ import           Cardano.Prelude hiding (All, Any, option)
 import           Prelude (String)
 
 import           Cardano.Api
-import           Cardano.Api.Shelley hiding (PlutusScriptPurpose (..))
+import           Cardano.Api.Shelley
 
 import           Cardano.CLI.Mary.TxOutParser (parseTxOutAnyEra)
 import           Cardano.CLI.Mary.ValueParser (parseValue, policyId)
@@ -300,13 +300,13 @@ pAnyScript = ScriptBundle
       index <- Atto.char '#' *> parseTxIx
       return $ TxInAnyEra txId index IsPlutusFee
 
-    pRedeemer :: Parser Redeemer
-    pRedeemer = Redeemer <$> Opt.strOption
-        (  Opt.long "redeemer-file"
-        <> Opt.metavar "FILE"
-        <> Opt.help "Filepath of the script redeemer."
-        <> Opt.completer (Opt.bashCompleter "file")
-        )
+pRedeemer :: Parser Redeemer
+pRedeemer = Redeemer <$> Opt.strOption
+    (  Opt.long "redeemer-file"
+    <> Opt.metavar "FILE"
+    <> Opt.help "Filepath of the script redeemer."
+    <> Opt.completer (Opt.bashCompleter "file")
+    )
 
 pStakeAddress :: Parser StakeAddressCmd
 pStakeAddress =
@@ -1646,13 +1646,17 @@ pCardanoEra = asum
   , pure (AnyCardanoEra ShelleyEra)
   ]
 
-pTxIn :: Parser TxInAnyEra
-pTxIn =
-  Opt.option (readerFromAttoParser parseTxInAny)
-    (  Opt.long "tx-in"
-    <> Opt.metavar "TX-IN"
-    <> Opt.help "The input transaction as TxId#TxIx where TxId is the transaction hash and TxIx is the index."
-    )
+pTxIn :: Parser (TxInAnyEra, Maybe ZippedPlutusScriptType)
+pTxIn = do
+  (,) <$> Opt.option (readerFromAttoParser parseTxInAny)
+             (  Opt.long "tx-in"
+             <> Opt.metavar "TX-IN"
+             <> Opt.help "The input transaction as TxId#TxIx where TxId is the transaction hash and TxIx is the index."
+             )
+      <*> optional (ZippedSpending <$> pScriptFile
+                                   <*> some pRedeemer
+                                   <*> optional parseDatum)
+
 
 parseTxInAny :: Atto.Parser TxInAnyEra
 parseTxInAny = do
@@ -1680,25 +1684,28 @@ parseTxIx = toEnum <$> Atto.decimal
 
 
 pTxOut :: Parser TxOutAnyEra
-pTxOut =
-    Opt.option (readerFromParsecParser parseTxOutAnyEra)
-      (  Opt.long "tx-out"
-      <> Opt.metavar "TX-OUT"
-      -- TODO: Update the help text to describe the new syntax as well.
-      <> Opt.help "The transaction output as Address+Lovelace where Address is \
-                  \the Bech32-encoded address followed by the amount in \
-                  \Lovelace. Optionally include a Datum if spending a txout locked by \
-                  \a non-native script (e.g Plutus Core)"
-      )
+pTxOut = Opt.option (readerFromParsecParser parseTxOutAnyEra)
+           (  Opt.long "tx-out"
+           <> Opt.metavar "TX-OUT"
+           -- TODO: Update the help text to describe the new syntax as well.
+           <> Opt.help "The transaction output as Address+Lovelace where Address is \
+                       \the Bech32-encoded address followed by the amount in \
+                       \Lovelace. Optionally include a Datum if spending a txout locked by \
+                       \a non-native script (e.g Plutus Core)"
+           )
 
-pMintMultiAsset :: Parser Value
+pMintMultiAsset :: Parser (Value, Maybe ZippedPlutusScriptType)
 pMintMultiAsset =
-  Opt.option
-    (readerFromParsecParser parseValue)
-      (  Opt.long "mint"
-      <> Opt.metavar "VALUE"
-      <> Opt.help "Mint multi-asset value(s) with the multi-asset cli syntax"
-      )
+  (,) <$> Opt.option
+           (readerFromParsecParser parseValue)
+             (  Opt.long "mint"
+             <> Opt.metavar "VALUE"
+             <> Opt.help "Mint multi-asset value(s) with the multi-asset cli syntax"
+             )
+      <*> optional (ZippedMinting <$> pScriptFile
+                                  <*> some pRedeemer
+                                  <*> optional parseDatum)
+
 
 pInvalidBefore :: Parser SlotNo
 pInvalidBefore =

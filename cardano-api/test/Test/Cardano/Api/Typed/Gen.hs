@@ -528,12 +528,12 @@ genTxMintValue era =
     MaryEra ->
       Gen.choice
         [ pure TxMintNone
-        , TxMintValue MultiAssetInMaryEra <$> genValueForMinting
+        , TxMintValue MultiAssetInMaryEra NoPlutusScript <$> genValueForMinting
         ]
     AlonzoEra ->
       Gen.choice
         [ pure TxMintNone
-        , TxMintValue MultiAssetInAlonzoEra <$> genValueForMinting
+        , TxMintValue MultiAssetInAlonzoEra (panic "TODO") <$> genValueForMinting
         ]
 
 genTxExecutionUnits :: CardanoEra era -> Gen (TxExecutionUnits era)
@@ -547,7 +547,7 @@ genTxExecutionUnits era =
 
 genTxBodyContent :: CardanoEra era -> Gen (TxBodyContent era)
 genTxBodyContent era = do
-  trxIns <- Gen.list (Range.constant 1 10) genTxIn
+  _trxIns <- Gen.list (Range.constant 1 10) genTxIn
   trxOuts <- Gen.list (Range.constant 1 10) (genTxOut era)
   fee <- genTxFee era
   validityRange <- genTxValidityRange era
@@ -560,7 +560,7 @@ genTxBodyContent era = do
   txExecUnits <- genTxExecutionUnits era
 
   pure $ TxBodyContent
-    { txIns = trxIns
+    { txIns = panic "TODO" --trxIns
     , txOuts = trxOuts
     , txFee = fee
     , txValidityRange = validityRange
